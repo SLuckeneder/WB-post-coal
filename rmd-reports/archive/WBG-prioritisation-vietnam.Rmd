@@ -1,0 +1,271 @@
+---
+output: html_document
+---
+  
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(sf)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggrepel)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(patchwork)
+library(knitr)
+library(purrr)
+library(stringr)
+library(kableExtra)
+library(reactable)
+library(scales)
+library(terra)
+library(mapview)
+library(htmltools)
+```
+
+```{r read, echo=FALSE, message=FALSE}
+cname <- "Vietnam"
+
+# Get the country borders (scale = "medium" gives decent detail)
+country_spatial <- rnaturalearth::ne_countries(scale = "large", returnclass = "sf") %>%
+  filter(admin == cname)
+
+cm_polygons_extended <- sf::st_read("../data/coal_mine_polygons_extended.gpkg", quiet = TRUE)
+
+# Convert area_mine  to hectares
+cm_polygons_extended$area_mine_ha <- cm_polygons_extended$area_mine / 10000
+
+# Merge KBA and PA for filtering
+cm_polygons_extended$dist_KBA_PA_m <- pmin(cm_polygons_extended$dist_KBA_m, cm_polygons_extended$dist_PA_m)
+
+# Subset data
+cm_polygons_extended <- cm_polygons_extended %>% dplyr::select(-area_mine)
+country_poly <- filter(cm_polygons_extended, country_name == cname)
+
+# zoom box for some maps
+bbox <- sf::st_bbox(country_poly)
+xpad <- 0.5 * (bbox["xmax"] - bbox["xmin"])
+ypad <- 0.5 * (bbox["ymax"] - bbox["ymin"])
+
+# # stats
+# cm_polygons_extended %>% dplyr::group_by(country_isoa3) %>%
+#   dplyr::summarise(n = n(),
+#                    total_area_mine_ha = sum(area_mine_ha))
+
+# Prep other spatial data
+
+# access road data
+# osm roads (merge motorway and primary roads)
+motorway <- st_read(paste0("../data/osm/", cname, ".gpkg"), layer = "motorway", quiet = TRUE)
+primary <- st_read(paste0("../data/osm/", cname, ".gpkg"), layer = "primary", quiet = TRUE)
+roads_combined <- bind_rows(
+  motorway, primary
+)
+
+# osm energy infrastructure data
+power_line <- st_read(paste0("../data/osm/", cname, ".gpkg"), layer = "power_line", quiet = TRUE)
+substation <- st_read(paste0("../data/osm/", cname, ".gpkg"), layer = "substation", quiet = TRUE)
+
+# urban areas
+urban <- sf::st_read("../data/urban_areas_full.shp", quiet = TRUE)
+urban <- sf::st_transform(urban, sf::st_crs(country_spatial))
+urban <- urban %>% sf::st_filter(country_spatial) %>% dplyr::select(geometry)
+
+```
+
+
+```{r, echo=FALSE, warning = FALSE, results='asis'}
+
+exclusion_factors <- c("area_mine_ha", "dist_power_line_m", "dist_substation_m", "dist_airport_m", "avg_GHI", "dist_KBA_PA_m")
+thresholds <- c(40, 10000, 10000, 1000, 3.5, 1)
+
+cm_polygons_flags <- cm_polygons_extended %>%
+  dplyr::filter(country_name == cname) %>%
+  st_drop_geometry() %>%
+  select(id, all_of(exclusion_factors)) %>%
+  dplyr::mutate("area_mine_ha_flag" = ifelse(area_mine_ha < 40, TRUE, FALSE), 
+                "dist_power_line_m_flag" = ifelse(dist_power_line_m > 10000, TRUE, FALSE), 
+                "dist_substation_m_flag" = ifelse(dist_substation_m > 10000, TRUE, FALSE), 
+                "dist_airport_m_flag" = ifelse(dist_airport_m < 1000, TRUE, FALSE), 
+                "avg_GHI_flag" = ifelse(avg_GHI < 3.5, TRUE, FALSE),
+                "dist_KBA_PA_m_flag" = ifelse(dist_KBA_PA_m == 0, TRUE, FALSE))
+
+# store suitable areas
+suitable_solar <- cm_polygons_flags %>%
+  filter(if_all(ends_with("_flag"), ~ .x == FALSE)) %>% # keep only rows where all *_flag columns are FALSE
+  select(id)
+
+```
+
+
+```{r, echo=FALSE, warning = FALSE, results='asis'}
+
+exclusion_factors <- c("area_mine_ha", "dist_power_line_m", "dist_substation_m", "dist_airport_m", "avg_wind_speed_ms_50m", "dist_KBA_PA_m")
+thresholds <- c(160, 10000, 10000, 2500, 4, 500)
+
+cm_polygons_flags <- cm_polygons_extended %>%
+  dplyr::filter(country_name == cname) %>%
+  st_drop_geometry() %>%
+  select(id, all_of(exclusion_factors)) %>%
+  dplyr::mutate("area_mine_ha_flag" = ifelse(area_mine_ha < 160, TRUE, FALSE), 
+                "dist_power_line_m_flag" = ifelse(dist_power_line_m > 10000, TRUE, FALSE), 
+                "dist_substation_m_flag" = ifelse(dist_substation_m > 10000, TRUE, FALSE), 
+                "dist_airport_m_flag" = ifelse(dist_airport_m < 2500, TRUE, FALSE), 
+                "avg_wind_flag" = ifelse(avg_wind_speed_ms_50m < 4, TRUE, FALSE),
+                "dist_KBA_PA_m_flag" = ifelse(dist_KBA_PA_m < 500, TRUE, FALSE))
+
+# store suitable areas
+suitable_wind <- cm_polygons_flags %>%
+  filter(if_all(ends_with("_flag"), ~ .x == FALSE)) %>% # keep only rows where all *_flag columns are FALSE
+  select(id)
+
+```
+
+```{r, echo=FALSE, warning = FALSE, results='asis'}
+
+exclusion_factors <- c("dist_PHES_upper_m", "dist_PHES_lower_m", "dist_KBA_PA_m")
+thresholds <- c(1, 1, 1)
+
+
+cm_polygons_flags <- cm_polygons_extended %>%
+  dplyr::filter(country_name == cname) %>%
+  st_drop_geometry() %>%
+  select(id, all_of(exclusion_factors)) %>%
+  dplyr::mutate("dist_PHES_upper_m_flag" = ifelse(dist_PHES_upper_m != 0, TRUE, FALSE), 
+                "dist_PHES_lower_m_flag" = ifelse(dist_PHES_lower_m != 0, TRUE, FALSE),
+                "dist_PHES_upper_or_lower_m_flag" = dist_PHES_upper_m_flag | dist_PHES_lower_m_flag,
+                "dist_KBA_PA_m_flag" = ifelse(dist_KBA_PA_m == 0, TRUE, FALSE))
+
+# store suitable areas
+suitable_phes <- cm_polygons_flags %>%
+  dplyr::select(-dist_PHES_upper_m_flag, -dist_PHES_lower_m_flag) %>%
+  filter(if_all(ends_with("_flag"), ~ .x == FALSE)) %>% # keep only rows where all *_flag columns are FALSE
+  select(id)
+
+```
+
+# Prioritisation of suitable mine sites
+
+Above, we identified candidate areas for potential repurposing. This summary allows for prioritization, based on following criteria:
+  
+  1. **Sufficient size** – Relatively large areas to allow flexible and impactful repurposing.
+2. **Repurposing potential** – Suitable for one or more repurposing options identified in this study.
+3.  **Proximity to urban areas** – Areas closer to existing urban areas may offer more opportunities for repurposing development, although this is not a strict requirement.  
+4.  **Distance from sensitive sites** – Areas further away from Protected Areas, Key Biodiversity Areas, World Heritage Sites, or Ramsar sites are generally more favourable, as they minimise potential conflicts with conservation priorities.
+
+**Coal mining areas suitable for at least one repurposing option (solar, wind, or pumped hydro):**
+  
+```{r, echo=FALSE, warning = FALSE, results='asis'}
+suitable <- cm_polygons_extended %>%
+  dplyr::filter(country_name == cname) %>%
+  dplyr::mutate(suitable_solar = ifelse(id %in% suitable_solar$id, TRUE, FALSE),
+                suitable_wind = ifelse(id %in% suitable_wind$id, TRUE, FALSE),
+                suitable_phes = ifelse(id %in% suitable_phes$id, TRUE, FALSE)) %>%
+  dplyr::select(id, area_mine_ha, avg_GHI, avg_wind_speed_ms_50m, suitable_solar, suitable_wind, suitable_phes, dist_urban_m, dist_KBA_PA_m) %>%
+  filter(if_any(c(suitable_solar, suitable_wind, suitable_phes), ~ .x == TRUE)) %>% # keep only rows where at least one suitability is TRUE
+  dplyr::arrange(-area_mine_ha)
+```
+
+```{r, echo=FALSE, warning=FALSE, results='asis'}
+suitable %>%
+  sf::st_drop_geometry() %>%
+  reactable(
+    columns = list(
+      id = colDef(name = "Site ID"),
+      area_mine_ha = colDef(
+        # name = "Mine Area (ha)",
+        header = tags$div(title = "Mine Area (ha)", "Mine Area (ha)"),
+        format = colFormat(separators = TRUE, digits = 0),
+        defaultSortOrder = "desc"
+      ),
+      suitable_solar = colDef(
+        name = "Solar",
+        cell = JS("function(cellInfo) { return cellInfo.value ? '✔️' : '❌'; }")
+      ),
+      avg_GHI = colDef(
+        header = tags$div(title = "Avg. GHI (kWh/m²/day)", "Avg. GHI (kWh/m²/day)"),
+        format = colFormat(digits = 1)
+      ),
+      suitable_wind = colDef(
+        name = "Wind",
+        cell = JS("function(cellInfo) { return cellInfo.value ? '✔️' : '❌'; }")
+      ),
+      avg_wind_speed_ms_50m = colDef(
+        header = tags$div(title = "Avg. Wind Speed (m/s at 50m)", "Avg. Wind Speed (m/s at 50m)"),
+        format = colFormat(digits = 1)
+      ),
+      suitable_phes = colDef(
+        name = "PHES",
+        cell = JS("function(cellInfo) { return cellInfo.value ? '✔️' : '❌'; }")
+      ),
+      dist_urban_m = colDef(
+        header = tags$div(title = "Dist. urban (m)", "Dist. urban (m)"),
+        format = colFormat(separators = TRUE, digits = 0),
+        defaultSortOrder = "desc"
+      ),
+      dist_KBA_PA_m = colDef(
+        header = tags$div(title = "Dist. PA/KBA (m)", "Dist. PA/KBA (m)"),
+        format = colFormat(separators = TRUE, digits = 0),
+        defaultSortOrder = "desc"
+      )
+    ),
+    searchable = TRUE,
+    filterable = TRUE,
+    sortable = TRUE,
+    highlight = TRUE,
+    striped = TRUE,
+    bordered = TRUE,
+    defaultPageSize = 10,
+    showPageSizeOptions = TRUE,
+    defaultSorted = "area_mine_ha",
+    wrap = FALSE,
+    compact = TRUE
+  )
+```
+
+
+```{r, echo=FALSE, warning=FALSE, results='asis', fig.width=11, fig.height=7}
+
+# create a new column indicating suitability type
+suitable_map <- suitable %>%
+  mutate(
+    suitability = case_when(
+      suitable_solar & !suitable_wind & !suitable_phes ~ "Solar",
+      !suitable_solar & suitable_wind & !suitable_phes ~ "Wind",
+      !suitable_solar & !suitable_wind & suitable_phes ~ "PHES",
+      suitable_solar | suitable_wind | suitable_phes ~ "Multiple use",
+      TRUE ~ "None"
+    )
+  )
+
+suitable_map$suitability <- factor(
+  suitable_map$suitability,
+  levels = c("Solar", "Wind", "Multiple use")
+)
+
+not_suitable <- country_poly %>% 
+  dplyr::filter(! id %in% suitable_map$id)
+
+mapview(
+  not_suitable,
+  color = "#A9A9A9",       # grey outline
+  col.regions = "#A9A9A9", # grey fill
+  alpha.regions = 0.5,
+  layer.name = "Not suitable",
+  label = not_suitable$id
+) +
+  mapview(
+    suitable_map,
+    zcol = "suitability",
+    layer.name = "Suitable",
+    legend = TRUE,
+    col.regions = c("#FFD700", "#1E90FF", "#FF4500"),
+    label = suitable_map$id
+  )
+
+```
+
+
+
