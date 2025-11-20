@@ -52,3 +52,5 @@ data
 *.html
 !docs/coal_mining_map.html
 
+figures
+
