@@ -14,12 +14,9 @@ countries <- rnaturalearth::ne_countries(scale = "large", returnclass = "sf") %>
 
 cm_polygons_extended <- sf::st_read("data/coal_mine_polygons_extended.gpkg")
 
-# Convert area_mine  to hectares
-cm_polygons_extended$area_mine_ha <- cm_polygons_extended$area_mine / 10000
-
 # tidy data and rename variables
 cm_polygons_extended <- cm_polygons_extended %>%
-  dplyr::select(1, 7, 26, 9:12, 14, 16, 18, 20, 21, 23, 24) %>%
+  dplyr::select(1, 7, 25, 9:12, 14, 16, 18, 20, 21, 23, 24, 27:29) %>%
   dplyr::rename("ID" = "id", 
                 "Country" = "country_name",
                 "Polygon area (ha)" = "area_mine_ha",
@@ -33,7 +30,10 @@ cm_polygons_extended <- cm_polygons_extended %>%
                 "Distance to PHES upper (m)" = "dist_PHES_upper_m",
                 "Distance to PHES lower (m)" = "dist_PHES_lower_m",
                 "Distance to Key Biodiversity Area (m)" = "dist_KBA_m",
-                "Distance to Protected Area (m)" = "dist_PA_m") %>%
+                "Distance to Protected Area (m)" = "dist_PA_m",
+                "Suitability solar" = "suitable_solar",
+                "Suitability wind" = "suitable_wind",
+                "Suitability PHES" = "suitable_phes") %>%
   dplyr::mutate(
     # Round all numeric columns except ID, Country, and the two special ones
     dplyr::across(
@@ -102,6 +102,14 @@ urban <- sf::st_read("data/urban_areas_full.shp", quiet = TRUE)
 urban <- sf::st_transform(urban, sf::st_crs(countries))
 urban <- urban %>% sf::st_filter(countries) %>% dplyr::select(geometry)
 
+# suitability layers
+suitability_solar <- cm_polygons_extended %>% dplyr::filter(`Suitability solar`)
+suitability_wind <- cm_polygons_extended %>% dplyr::filter(`Suitability wind`)
+suitability_phes <- cm_polygons_extended %>% dplyr::filter(`Suitability PHES`)
+suitability_multiple <- cm_polygons_extended %>%
+  dplyr::mutate(multiple = `Suitability solar` + `Suitability wind` + `Suitability PHES`) %>%
+  dplyr::filter(multiple > 1)
+
 # mapview
 mapviewOptions(homebutton = FALSE)  # disables "zoom to layer" control
 
@@ -161,7 +169,43 @@ m <- mapview(
     alpha.regions = 0.5,
     layer.name = "Coal Mining",
     label =  cm_polygons_extended$ID
-  ) 
+  ) +
+  mapview(
+    suitability_solar,
+    color = "#FFD700",
+    col.regions = "#FFD700",
+    alpha.regions = 1,
+    layer.name = "Suitable for Solar",
+    hide = TRUE,
+    label =  cm_polygons_extended$ID
+  ) +
+  mapview(
+    suitability_wind,
+    color = "#1E90FF",
+    col.regions = "#1E90FF",
+    alpha.regions = 1,
+    layer.name = "Suitable for Wind",
+    hide = TRUE,
+    label =  cm_polygons_extended$ID
+  ) +
+  mapview(
+    suitability_phes,
+    color = "#00FFFF",
+    col.regions = "#00FFFF",
+    alpha.regions = 1,
+    layer.name = "Suitable for PHES",
+    hide = TRUE,
+    label =  cm_polygons_extended$ID
+  ) +
+  mapview(
+    suitability_multiple,
+    color = "#FF4500",
+    col.regions = "#FF4500",
+    alpha.regions = 1,
+    layer.name = "Suitable for Multiple Use",
+    hide = TRUE,
+    label =  cm_polygons_extended$ID
+  )
 
 
 leaflet_map <- m@map
