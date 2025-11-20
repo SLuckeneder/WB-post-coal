@@ -312,17 +312,78 @@ for (i in countries){
 }
 
 cm_polygons_extended <- do.call("rbind", store)
+
+cm_polygons_extended <- cm_polygons_extended %>%
+  dplyr::mutate(area_mine_ha = area_mine / 10000) %>% # Convert area_mine  to hectares
+  dplyr::mutate(dist_KBA_PA_m = pmin(dist_KBA_m, dist_PA_m)) # Merge KBA and PA for filtering
+
+# add suitability
+cm_polygons_extended <- cm_polygons_extended %>% 
+  dplyr::mutate(suitable_solar = ifelse(area_mine_ha >= 40 &
+                                          dist_power_line_m <= 10000 &
+                                          dist_substation_m <= 10000 &
+                                          dist_airport_m >= 1000 &
+                                          avg_GHI >= 3.5 &
+                                          dist_KBA_PA_m > 0, 
+                                        TRUE, FALSE)) %>% 
+  dplyr::mutate(suitable_wind = ifelse(area_mine_ha >= 160 &
+                                          dist_power_line_m <= 10000 &
+                                          dist_substation_m <= 10000 &
+                                          dist_airport_m >= 2500 &
+                                          avg_wind_speed_ms_50m >= 4 &
+                                          dist_KBA_PA_m >= 500, 
+                                        TRUE, FALSE)) %>% 
+  dplyr::mutate(suitable_phes = ifelse((dist_PHES_upper_m == 0 | dist_PHES_lower_m == 0) &
+                                         dist_KBA_PA_m > 0,
+                                       TRUE, FALSE)) 
+
+
 sf::st_write(cm_polygons_extended, "data/coal_mine_polygons_extended.gpkg")
 write.csv(cm_polygons_extended %>% sf::st_drop_geometry(), "data/coal_mine_polygons_extended.csv", row.names = FALSE)
+
 
 # export a shareable, clean version
 cm_polygons_extended_clean <- cm_polygons_extended %>%
   dplyr::mutate(centroid = sf::st_centroid(geom)) %>% # Calculate centroids
   dplyr::mutate(centroid_x = sf::st_coordinates(centroid)[,1], # Extract X and Y coordinates
-                centroid_y = sf::st_coordinates(centroid)[,2],
-                area_mine_ha = area_mine / 10000) %>%
+                centroid_y = sf::st_coordinates(centroid)[,2]) %>%
   sf::st_drop_geometry() %>%
-  dplyr::select(1, 26, 27, 3, 28, 7, 9:24) %>%
+  dplyr::select(1, 31, 32, 3, 25, 7, 9:24, 27:29) %>%
   dplyr::rename("polygon_source" = "data_source")
 write.csv(cm_polygons_extended_clean, "data/coal_mine_polygons_extended_clean.csv", row.names = FALSE)
 
+# stats
+nrow(cm_polygons_extended_clean)
+cm_polygons_extended_clean %>% dplyr::filter(suitable_solar | suitable_wind | suitable_phes) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
+
+cm_polygons_extended_clean %>% dplyr::filter(country_name == "Indonesia") %>%
+  dplyr::filter(suitable_solar | suitable_wind | suitable_phes) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
+cm_polygons_extended_clean %>% dplyr::filter(country_name == "Indonesia") %>%
+  dplyr::filter(suitable_solar) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
+cm_polygons_extended_clean %>% dplyr::filter(country_name == "Indonesia") %>%
+  dplyr::filter(suitable_phes) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
+
+cm_polygons_extended_clean %>% dplyr::filter(country_name == "Vietnam") %>%
+  dplyr::filter(suitable_solar | suitable_wind | suitable_phes) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
+cm_polygons_extended_clean %>% dplyr::filter(country_name == "Vietnam") %>%
+  dplyr::filter(suitable_solar) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
+cm_polygons_extended_clean %>% dplyr::filter(country_name == "Vietnam") %>%
+  dplyr::filter(suitable_wind) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
+cm_polygons_extended_clean %>% dplyr::filter(country_name == "Vietnam") %>%
+  dplyr::filter(suitable_phes) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
+
+cm_polygons_extended_clean %>% dplyr::filter(country_name == "Thailand") %>%
+  dplyr::filter(suitable_solar | suitable_wind | suitable_phes) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
+
+cm_polygons_extended_clean %>% dplyr::filter(country_name == "Philippines") %>%
+  dplyr::filter(suitable_solar | suitable_wind | suitable_phes) %>%
+  dplyr::summarise(area_mine_ha = sum(area_mine_ha))
