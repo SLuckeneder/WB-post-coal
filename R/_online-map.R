@@ -212,7 +212,7 @@ leaflet_map <- m@map
 
 leaflet_map <- leaflet_map %>%
   addControl(
-    html = "<button onclick=\"alert('Sources:\\n- Countries: Natural Earth\\n- Coal mining areas: WU Vienna, Maus et al. (2022), Tang and Werner (2023)\\n- Roads, power lines, substations, airports: OpenStreetMap (OSM)\\n- Urban areas: Daylight Map Distribution (OSM-based)\\n- Global Horizontal Irradiation: Global Solar Atlas\\n- Wind speed: Global Wind Atlas\\n- Potential pumped hydro energy storage (PHES): Weber et al. (2024)\\n- Key Biodiversity Areas: SOURCE MISSING\\n- Protected Areas: SOURCE MISSING');\">Sources</button>",
+    html = "<button onclick=\"alert('Sources:\\n- Countries: Natural Earth\\n- Coal mining areas: WU Vienna, Maus et al. (2022), Tang and Werner (2023)\\n- Roads, power lines, substations, airports: OpenStreetMap (OSM)\\n- Urban areas: Daylight Map Distribution (OSM-based)\\n- Global Horizontal Irradiation: Global Solar Atlas\\n- Wind speed: Global Wind Atlas\\n- Potential pumped hydro energy storage (PHES): Weber et al. (2024)\\n- Key Biodiversity Areas: IBAT\\n- Protected Areas: IBAT');\">Sources</button>",
     position = "bottomright"
   )
 
