@@ -48,7 +48,9 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-data
+data/*
+!data/coal_mine_polygons_extended_clean.csv
+
 *.html
 !docs/coal_mining_map.html
 
