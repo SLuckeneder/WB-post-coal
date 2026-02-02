@@ -5,6 +5,7 @@ library(ggplot2)
 library(ggspatial)
 library(rnaturalearth)
 library(rnaturalearthdata)
+library(grid)
 
 # ----------------------------------------
 # Read & prepare data
@@ -87,6 +88,19 @@ cities <- rnaturalearth::ne_download(
   returnclass = "sf"
 )
 
+# Indonesia outline
+IDN <- rnaturalearth::ne_countries(
+  country = "Indonesia",
+  scale = "medium",
+  returnclass = "sf"
+)
+
+# Vietnam outline
+VNM <- rnaturalearth::ne_countries(
+  country = "Vietnam",
+  scale = "medium",
+  returnclass = "sf"
+)
 
 # ----------------------------------------
 # FIGURE 1 – Kalimantan
@@ -222,9 +236,59 @@ p <- ggplot() +
     style = north_arrow_fancy_orienteering
   )
 
+
+# add inset map
+zoom_poly <- sf::st_as_sfc(
+  st_bbox(
+    c(
+      xmin = lim$x_lim[[1]][1],
+      xmax = lim$x_lim[[1]][2],
+      ymin = lim$y_lim[[1]][1],
+      ymax = lim$y_lim[[1]][2]
+    ),
+    crs = st_crs(IDN)
+  )
+)
+inset_map <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = IDN, fill = "grey95", colour = "grey50", linewidth = 0.3) +
+  ggplot2::geom_sf(data = zoom_poly, fill = NA, colour = "red", linewidth = 0.8) +
+  ggplot2::theme_void() +
+  ggplot2::theme(
+    panel.background = element_rect(fill = "white", colour = "black", linewidth = 0.4)
+  )
+
+inset_grob <- ggplotGrob(inset_map) # convert inset map to a grob
+
+# p_final <- p +
+#   ggplot2::annotation_custom(
+#     grob = inset_grob,
+#     xmin = lim$x_lim[[1]][1] + 1.2,    # adjust horizontal placement
+#     xmax = lim$x_lim[[1]][1] + 3.2,    # adjust width of inset
+#     ymin = lim$y_lim[[1]][1] + 4.5,    # adjust vertical placement
+#     ymax = lim$y_lim[[1]][1] + 6.5     # adjust height of inset
+#   )
+
+# p_final <- p +
+#   ggplot2::annotation_custom(
+#     grob = inset_grob,
+#     xmin = lim$x_lim[[1]][1] + 3.2,    # adjust horizontal placement
+#     xmax = lim$x_lim[[1]][1] + 5.2,    # adjust width of inset
+#     ymin = lim$y_lim[[1]][1] + 0.01,    # adjust vertical placement
+#     ymax = lim$y_lim[[1]][1] + 1.01     # adjust height of inset
+#   )
+
+p_final <- p +
+  ggplot2::annotation_custom(
+    grob = inset_grob,
+    xmin = lim$x_lim[[1]][1] + 4.5,    # adjust horizontal placement
+    xmax = lim$x_lim[[1]][1] + 6.7,    # adjust width of inset
+    ymin = lim$y_lim[[1]][1] + 0.4,    # adjust vertical placement
+    ymax = lim$y_lim[[1]][1] + 1.8     # adjust height of inset
+  )
+
 ggsave(
   filename = "figures/figure-1_map_kalimantan.png",
-  plot = p,
+  plot = p_final,
   width = 5,         # in inches
   height = 5 * diff(lim$y_lim[[1]]) / diff(lim$x_lim[[1]]),  # keep aspect ratio
   dpi = 300
@@ -374,9 +438,40 @@ p <- ggplot() +
     style = north_arrow_fancy_orienteering
   )
 
+# add inset map
+zoom_poly <- sf::st_as_sfc(
+  st_bbox(
+    c(
+      xmin = lim$x_lim[[1]][1],
+      xmax = lim$x_lim[[1]][2],
+      ymin = lim$y_lim[[1]][1],
+      ymax = lim$y_lim[[1]][2]
+    ),
+    crs = st_crs(IDN)
+  )
+)
+inset_map <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = IDN, fill = "grey95", colour = "grey50", linewidth = 0.3) +
+  ggplot2::geom_sf(data = zoom_poly, fill = NA, colour = "red", linewidth = 0.8) +
+  ggplot2::theme_void() +
+  ggplot2::theme(
+    panel.background = element_rect(fill = "white", colour = "black", linewidth = 0.4)
+  )
+
+inset_grob <- ggplotGrob(inset_map) # convert inset map to a grob
+
+p_final <- p +
+  ggplot2::annotation_custom(
+    grob = inset_grob,
+    xmin = lim$x_lim[[1]][1] + 0.05,    # adjust horizontal placement
+    xmax = lim$x_lim[[1]][1] + 1.15,    # adjust width of inset
+    ymin = lim$y_lim[[1]][1] + 0.5,    # adjust vertical placement
+    ymax = lim$y_lim[[1]][1] + 1.7     # adjust height of inset
+  )
+
 ggsave(
   filename = "figures/figure-2_map_sumatra.png",
-  plot = p,
+  plot = p_final,
   width = 5,         # in inches
   height = 5 * diff(lim$y_lim[[1]]) / diff(lim$x_lim[[1]]),  # keep aspect ratio
   dpi = 300
@@ -517,9 +612,40 @@ p <- ggplot() +
     style = north_arrow_fancy_orienteering
   )
 
+# add inset map
+zoom_poly <- sf::st_as_sfc(
+  st_bbox(
+    c(
+      xmin = lim$x_lim[[1]][1],
+      xmax = lim$x_lim[[1]][2],
+      ymin = lim$y_lim[[1]][1],
+      ymax = lim$y_lim[[1]][2]
+    ),
+    crs = st_crs(VNM)
+  )
+)
+inset_map <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = VNM, fill = "grey95", colour = "grey50", linewidth = 0.3) +
+  ggplot2::geom_sf(data = zoom_poly, fill = NA, colour = "red", linewidth = 0.8) +
+  ggplot2::theme_void() +
+  ggplot2::theme(
+    panel.background = element_rect(fill = "white", colour = "black", linewidth = 0.4)
+  )
+
+inset_grob <- ggplotGrob(inset_map) # convert inset map to a grob
+
+p_final <- p +
+  ggplot2::annotation_custom(
+    grob = inset_grob,
+    xmin = lim$x_lim[[1]][1] + 1.2,    # adjust horizontal placement
+    xmax = lim$x_lim[[1]][1] + 1.6,    # adjust width of inset
+    ymin = lim$y_lim[[1]][1] + 0.02,    # adjust vertical placement
+    ymax = lim$y_lim[[1]][1] + 0.42     # adjust height of inset
+  )
+
 ggsave(
   filename = "figures/figure-3_map_vietnam.png",
-  plot = p,
+  plot = p_final,
   width = 5,         # in inches
   height = 5 * diff(lim$y_lim[[1]]) / diff(lim$x_lim[[1]]),  # keep aspect ratio
   dpi = 300

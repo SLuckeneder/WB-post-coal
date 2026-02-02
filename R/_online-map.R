@@ -111,10 +111,17 @@ suitability_multiple <- cm_polygons_extended %>%
   dplyr::filter(multiple > 1)
 
 # mapview
-mapviewOptions(homebutton = FALSE)  # disables "zoom to layer" control
+mapviewOptions(homebutton = FALSE) # disables "zoom to layer" control
 
 m <- mapview(
   countries,
+  map.types = c(
+    "CartoDB.Positron",
+    # "CartoDB.DarkMatter",
+    "OpenStreetMap",
+    "Esri.WorldImagery",
+    "OpenTopoMap"
+  ),
   color = "white",
   col.regions = "white",
   alpha.regions = 0.05,
@@ -146,7 +153,7 @@ m <- mapview(
     color = "#e6ac00",
     col.regions = "#e6ac00",
     alpha.regions = 0.2,
-    layer.name = "Power Line",
+    layer.name = "Transmission Line",
     label = NA,
     popup = FALSE,
     hide = TRUE
@@ -175,7 +182,7 @@ m <- mapview(
     color = "#FFD700",
     col.regions = "#FFD700",
     alpha.regions = 1,
-    layer.name = "Suitable for Solar",
+    layer.name = "Potentially Suitable for Solar",
     hide = TRUE,
     label =  cm_polygons_extended$ID
   ) +
@@ -184,7 +191,7 @@ m <- mapview(
     color = "#1E90FF",
     col.regions = "#1E90FF",
     alpha.regions = 1,
-    layer.name = "Suitable for Wind",
+    layer.name = "Potentially Suitable for Wind",
     hide = TRUE,
     label =  cm_polygons_extended$ID
   ) +
@@ -193,7 +200,7 @@ m <- mapview(
     color = "#00FFFF",
     col.regions = "#00FFFF",
     alpha.regions = 1,
-    layer.name = "Suitable for PHES",
+    layer.name = "Potentially Suitable for PHES",
     hide = TRUE,
     label =  cm_polygons_extended$ID
   ) +
@@ -202,11 +209,10 @@ m <- mapview(
     color = "#FF4500",
     col.regions = "#FF4500",
     alpha.regions = 1,
-    layer.name = "Suitable for Multiple Use",
+    layer.name = "Potentially Suitable for Multiple Use",
     hide = TRUE,
     label =  cm_polygons_extended$ID
   )
-
 
 leaflet_map <- m@map
 
